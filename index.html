@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Shift Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --bg: #12151b;
+  --panel: #1a1f28;
+  --panel-2: #212733;
+  --border: #2b3240;
+  --text: #e9ecf2;
+  --muted: #8a93a6;
+  --amber: #ff9f43;
+  --amber-dim: #7a5a30;
+  --green: #6fcf97;
+  --red: #e6685f;
+  --radius: 10px;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255,159,67,0.06), transparent 40%),
+    var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wrap{
+  max-width:520px;
+  margin:0 auto;
+  padding:28px 18px 60px;
+}
+
+header{
+  margin-bottom:22px;
+  padding-bottom:16px;
+  border-bottom:1px solid var(--border);
+}
+header .brand{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  letter-spacing:0.14em;
+  color:var(--amber);
+  text-transform:uppercase;
+}
+header h1{
+  font-size:20px;
+  margin:4px 0 0;
+  font-weight:700;
+  letter-spacing:-0.01em;
+}
+
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:18px;
+  margin-bottom:14px;
+}
+
+label{
+  display:block;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin-bottom:8px;
+}
+
+select, input[type=time]{
+  width:100%;
+  background:var(--panel-2);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:12px 12px;
+  border-radius:8px;
+  font-size:16px;
+  font-family:'Inter',sans-serif;
+  appearance:none;
+  -webkit-appearance:none;
+}
+select:focus, input:focus{
+  outline:2px solid var(--amber);
+  outline-offset:1px;
+}
+
+.select-wrap{position:relative;}
+.select-wrap::after{
+  content:"▾";
+  position:absolute;
+  right:14px; top:50%;
+  transform:translateY(-50%);
+  color:var(--muted);
+  pointer-events:none;
+  font-size:12px;
+}
+
+.row2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.time-select{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.time-select select{
+  flex:1;
+  min-width:0;
+  text-align:center;
+  font-family:'JetBrains Mono',monospace;
+}
+.time-select span{
+  color:var(--muted);
+  font-family:'JetBrains Mono',monospace;
+}
+
+.equip-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.equip-item{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  background:var(--panel-2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:11px 10px;
+  cursor:pointer;
+  user-select:none;
+  transition:border-color .12s, background .12s;
+}
+.equip-item.checked{
+  border-color:var(--amber-dim);
+  background:rgba(255,159,67,0.08);
+}
+.equip-item input{
+  width:16px;height:16px;
+  accent-color: var(--amber);
+  flex-shrink:0;
+}
+.equip-item span{font-size:13.5px;}
+
+.section-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  color:var(--amber);
+  margin:0 0 14px;
+}
+
+button{
+  font-family:'Inter',sans-serif;
+  font-weight:600;
+  font-size:15px;
+  border:none;
+  border-radius:8px;
+  padding:14px 18px;
+  cursor:pointer;
+  width:100%;
+  transition:filter .12s, opacity .12s;
+}
+button:active{filter:brightness(0.92);}
+button:disabled{opacity:0.45;cursor:not-allowed;}
+
+.btn-save{
+  background:var(--amber);
+  color:#1a1206;
+}
+
+.status{
+  font-family:'JetBrains Mono',monospace;
+  font-size:12.5px;
+  text-align:center;
+  margin-top:12px;
+  min-height:16px;
+  color:var(--muted);
+}
+.status.ok{color:var(--green);}
+.status.err{color:var(--red);}
+
+footer{
+  text-align:center;
+  color:var(--muted);
+  font-size:11px;
+  margin-top:30px;
+  font-family:'JetBrains Mono',monospace;
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">Shift Log</div>
+    <h1>Weekly hours &amp; equipment</h1>
+  </header>
+
+  <div class="card">
+    <p class="section-label">Who &amp; when</p>
+    <div class="select-wrap" style="margin-bottom:14px;">
+      <label for="week">Calendar week</label>
+      <select id="week"></select>
+    </div>
+    <div class="select-wrap" style="margin-bottom:14px;">
+      <label for="name">Name</label>
+      <select id="name"></select>
+    </div>
+    <div class="select-wrap">
+      <label for="recipient">Send to</label>
+      <select id="recipient"></select>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Working hours</p>
+    <div class="row2">
+      <div>
+        <label for="fromHour">From</label>
+        <div class="time-select">
+          <select id="fromHour"></select>
+          <span>:</span>
+          <select id="fromMin"></select>
+        </div>
+      </div>
+      <div>
+        <label for="toHour">To</label>
+        <div class="time-select">
+          <select id="toHour"></select>
+          <span>:</span>
+          <select id="toMin"></select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Test equipment used</p>
+    <div class="equip-grid" id="equipGrid"></div>
+  </div>
+
+  <button class="btn-save" id="btnSave">Save &amp; send</button>
+
+  <div class="status" id="status"></div>
+
+  <footer>KENGURU · SHIFT LOG · v2.0</footer>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — EDIT THESE VALUES
+   ============================================================ */
+const CONFIG = {
+  APPS_SCRIPT_URL: 'YOUR_APPS_SCRIPT_WEB_APP_URL', // ends in /exec
+  SHARED_SECRET: 'formeld',                       // must match the .gs file
+  // Each colleague's email is used as Reply-To on the email that gets sent —
+  // must match the SENDERS map in apps-script-code.gs
+  NAMES: [
+    { name: 'Name 1', email: 'name1@example.com' },
+    { name: 'Name 2', email: 'name2@example.com' },
+    { name: 'Name 3', email: 'name3@example.com' },
+    { name: 'Name 4', email: 'name4@example.com' }
+  ],
+  // Who the log can be sent to — must match RECIPIENTS in apps-script-code.gs
+  SUPERVISORS: [
+    { name: 'Supervisor 1', email: 'supervisor1@example.com' },
+    { name: 'Supervisor 2', email: 'supervisor2@example.com' }
+  ],
+  EQUIPMENT: [
+    'Equipment 1', 'Equipment 2', 'Equipment 3',
+    'Equipment 4', 'Equipment 5', 'Equipment 6'
+  ]
+};
+/* ============================================================ */
+
+// ---------- ISO week helpers ----------
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return { week: weekNo, year: d.getUTCFullYear() };
+}
+function mondayOfISOWeek(week, year) {
+  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  const dow = simple.getUTCDay();
+  const monday = new Date(simple);
+  if (dow <= 4) monday.setUTCDate(simple.getUTCDate() - dow + 1);
+  else monday.setUTCDate(simple.getUTCDate() + 8 - dow);
+  return monday;
+}
+function fmt(d) {
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+function populateWeeks() {
+  const sel = document.getElementById('week');
+  const today = new Date();
+  const { week: curWeek, year: curYear } = getISOWeek(today);
+
+  const options = [];
+  for (let offset = -8; offset <= 4; offset++) {
+    const monday = mondayOfISOWeek(curWeek, curYear);
+    monday.setUTCDate(monday.getUTCDate() + offset * 7);
+    const { week: normW, year: normY } = getISOWeek(monday);
+    const sunday = new Date(monday);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+    options.push({
+      value: `W${String(normW).padStart(2, '0')}-${normY}`,
+      label: `W${String(normW).padStart(2, '0')} · ${fmt(monday)}–${fmt(sunday)} ${normY}`,
+      isCurrent: offset === 0
+    });
+  }
+  sel.innerHTML = options.map(o =>
+    `<option value="${o.value}"${o.isCurrent ? ' selected' : ''}>${o.label}</option>`
+  ).join('');
+}
+
+function populateTimeSelects() {
+  const hourOptions = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'));
+  const minOptions = ['00', '15', '30', '45'];
+
+  const fill = (id, opts) => {
+    document.getElementById(id).innerHTML = opts.map(o => `<option value="${o}">${o}</option>`).join('');
+  };
+  fill('fromHour', hourOptions);
+  fill('toHour', hourOptions);
+  fill('fromMin', minOptions);
+  fill('toMin', minOptions);
+
+  document.getElementById('fromHour').value = '08';
+  document.getElementById('fromMin').value = '00';
+  document.getElementById('toHour').value = '16';
+  document.getElementById('toMin').value = '30';
+}
+
+function getTime(hourId, minId) {
+  return document.getElementById(hourId).value + ':' + document.getElementById(minId).value;
+}
+
+function populateNames() {
+  const sel = document.getElementById('name');
+  sel.innerHTML = CONFIG.NAMES.map((n, i) => `<option value="${i}">${n.name}</option>`).join('');
+}
+
+function populateRecipients() {
+  const sel = document.getElementById('recipient');
+  sel.innerHTML = CONFIG.SUPERVISORS.map((s, i) => `<option value="${i}">${s.name}</option>`).join('');
+}
+
+function populateEquipment() {
+  const grid = document.getElementById('equipGrid');
+  grid.innerHTML = CONFIG.EQUIPMENT.map((eq, i) => `
+    <label class="equip-item" for="eq_${i}">
+      <input type="checkbox" id="eq_${i}" value="${eq}">
+      <span>${eq}</span>
+    </label>
+  `).join('');
+  grid.querySelectorAll('.equip-item').forEach(item => {
+    const cb = item.querySelector('input');
+    item.addEventListener('click', (e) => {
+      if (e.target !== cb) cb.checked = !cb.checked;
+      item.classList.toggle('checked', cb.checked);
+    });
+  });
+}
+
+// ---------- Build xlsx ----------
+function buildWorkbook(data) {
+  const wsData = [
+    ['Week', 'Date Range', 'Name', 'From', 'To', 'Equipment Used', 'Submitted At'],
+    [data.week, data.dateRange, data.name, data.from, data.to, data.equipment.join(', '), new Date().toISOString()]
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 16 }, { wch: 8 }, { wch: 8 }, { wch: 45 }, { wch: 22 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Log');
+  return wb;
+}
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+async function sendViaAppsScript(payload) {
+  // Apps Script web apps don't return CORS headers, so the response is
+  // opaque with mode:'no-cors' — we can't read success/failure back,
+  // but the request itself still reaches the script and triggers the email.
+  await fetch(CONFIG.APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+}
+
+function setStatus(msg, cls) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+
+document.getElementById('btnSave').addEventListener('click', async () => {
+  if (CONFIG.APPS_SCRIPT_URL.startsWith('YOUR_')) {
+    setStatus('Set CONFIG.APPS_SCRIPT_URL in the file first.', 'err');
+    return;
+  }
+  const weekSel = document.getElementById('week');
+  const nameObj = CONFIG.NAMES[document.getElementById('name').value];
+  const supervisorObj = CONFIG.SUPERVISORS[document.getElementById('recipient').value];
+  const from = getTime('fromHour', 'fromMin');
+  const to = getTime('toHour', 'toMin');
+  const equipment = Array.from(document.querySelectorAll('#equipGrid input:checked')).map(cb => cb.value);
+
+  const weekLabel = weekSel.options[weekSel.selectedIndex].text;
+  const data = { week: weekSel.value, dateRange: weekLabel, name: nameObj.name, from, to, equipment };
+
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true;
+  setStatus('Generating file…');
+
+  try {
+    const wb = buildWorkbook(data);
+    const arrayBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    const filename = `shiftlog_${data.week}_${nameObj.name.replace(/\s+/g, '_')}_${Date.now()}.xlsx`;
+
+    setStatus('Sending…');
+    await sendViaAppsScript({
+      secret: CONFIG.SHARED_SECRET,
+      filename,
+      fileBase64: arrayBufferToBase64(arrayBuf),
+      week: data.week,
+      dateRange: data.dateRange,
+      name: data.name,
+      replyTo: nameObj.email,
+      recipientName: supervisorObj.name,
+      from: data.from,
+      to: data.to,
+      equipment: equipment.join(', ')
+    });
+
+    setStatus('Sent ✓  ' + filename, 'ok');
+  } catch (err) {
+    console.error(err);
+    setStatus('Send failed — see console for details.', 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---------- init ----------
+populateWeeks();
+populateNames();
+populateRecipients();
+populateTimeSelects();
+populateEquipment();
+</script>
+</body>
+</html>
