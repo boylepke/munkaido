@@ -227,13 +227,9 @@ footer{
       <input type="date" id="day">
       <div id="weekBadge" class="week-badge"></div>
     </div>
-    <div class="select-wrap" style="margin-bottom:14px;">
+    <div class="select-wrap">
       <label for="name">Name</label>
       <select id="name"></select>
-    </div>
-    <div class="select-wrap">
-      <label for="recipient">Send to</label>
-      <select id="recipient"></select>
     </div>
   </div>
 
@@ -264,11 +260,11 @@ footer{
     <div class="equip-grid" id="equipGrid"></div>
   </div>
 
-  <button class="btn-save" id="btnSave">Save &amp; send</button>
+  <button class="btn-save" id="btnSave">Save &amp; upload</button>
 
   <div class="status" id="status"></div>
 
-  <footer>KENGURU · SHIFT LOG · v2.0</footer>
+  <footer>KENGURU · SHIFT LOG · v3.0</footer>
 </div>
 
 <script>
@@ -276,21 +272,9 @@ footer{
    CONFIG — EDIT THESE VALUES
    ============================================================ */
 const CONFIG = {
-  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwnaeTjtkJ3Ea_8PDXvIO5scB1BcHCytlRLLZFpihlSWeeh-48NLPJC07kNAhIx-JERNQ/exec', // ends in /exec
-  SHARED_SECRET: 'formeld',                       // must match the .gs file
-  // Each colleague's email is used as Reply-To on the email that gets sent —
-  // must match the SENDERS map in apps-script-code.gs
-  NAMES: [
-    { name: 'Test User', email: 'user.test@formeld.com' },
-    { name: 'Name 2', email: 'name2@example.com' },
-    { name: 'Name 3', email: 'name3@example.com' },
-    { name: 'Name 4', email: 'name4@example.com' }
-  ],
-  // Who the log can be sent to — must match RECIPIENTS in apps-script-code.gs
-  SUPERVISORS: [
-    { name: 'Parti Laci', email: 'laszlo.parti@formeld.com' },
-    { name: 'Guszti', email: 'gusztav.gombas@formeld.com' }
-  ],
+  APPS_SCRIPT_URL: 'YOUR_APPS_SCRIPT_WEB_APP_URL', // ends in /exec
+  SHARED_SECRET: 'change-me',                       // must match the .gs file
+  NAMES: ['Name 1', 'Name 2', 'Name 3', 'Name 4'],
   EQUIPMENT: [
     'Equipment 1', 'Equipment 2', 'Equipment 3',
     'Equipment 4', 'Equipment 5', 'Equipment 6'
@@ -358,12 +342,7 @@ function getTime(hourId, minId) {
 
 function populateNames() {
   const sel = document.getElementById('name');
-  sel.innerHTML = CONFIG.NAMES.map((n, i) => `<option value="${i}">${n.name}</option>`).join('');
-}
-
-function populateRecipients() {
-  const sel = document.getElementById('recipient');
-  sel.innerHTML = CONFIG.SUPERVISORS.map((s, i) => `<option value="${i}">${s.name}</option>`).join('');
+  sel.innerHTML = CONFIG.NAMES.map(n => `<option value="${n}">${n}</option>`).join('');
 }
 
 function populateEquipment() {
@@ -432,14 +411,13 @@ document.getElementById('btnSave').addEventListener('click', async () => {
   const dayVal = document.getElementById('day').value;
   const dayDate = dateFromInputValue(dayVal);
   const { week: isoWeek, year: isoYear } = getISOWeek(dayDate);
-  const nameObj = CONFIG.NAMES[document.getElementById('name').value];
-  const supervisorObj = CONFIG.SUPERVISORS[document.getElementById('recipient').value];
+  const name = document.getElementById('name').value;
   const from = getTime('fromHour', 'fromMin');
   const to = getTime('toHour', 'toMin');
   const equipment = Array.from(document.querySelectorAll('#equipGrid input:checked')).map(cb => cb.value);
 
   const weekCode = `W${String(isoWeek).padStart(2, '0')}-${isoYear}`;
-  const data = { week: weekCode, date: dayVal, name: nameObj.name, from, to, equipment };
+  const data = { week: weekCode, date: dayVal, name, from, to, equipment };
 
   const btn = document.getElementById('btnSave');
   btn.disabled = true;
@@ -448,9 +426,9 @@ document.getElementById('btnSave').addEventListener('click', async () => {
   try {
     const wb = buildWorkbook(data);
     const arrayBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
-    const filename = `shiftlog_${data.week}_${nameObj.name.replace(/\s+/g, '_')}_${Date.now()}.xlsx`;
+    const filename = `shiftlog_${data.week}_${name.replace(/\s+/g, '_')}_${Date.now()}.xlsx`;
 
-    setStatus('Sending…');
+    setStatus('Uploading…');
     await sendViaAppsScript({
       secret: CONFIG.SHARED_SECRET,
       filename,
@@ -458,17 +436,15 @@ document.getElementById('btnSave').addEventListener('click', async () => {
       week: data.week,
       date: data.date,
       name: data.name,
-      replyTo: nameObj.email,
-      recipientName: supervisorObj.name,
       from: data.from,
       to: data.to,
       equipment: equipment.join(', ')
     });
 
-    setStatus('Sent ✓  ' + filename, 'ok');
+    setStatus('Uploaded ✓  ' + filename, 'ok');
   } catch (err) {
     console.error(err);
-    setStatus('Send failed — see console for details.', 'err');
+    setStatus('Upload failed — see console for details.', 'err');
   } finally {
     btn.disabled = false;
   }
@@ -477,7 +453,6 @@ document.getElementById('btnSave').addEventListener('click', async () => {
 // ---------- init ----------
 populateDay();
 populateNames();
-populateRecipients();
 populateTimeSelects();
 populateEquipment();
 </script>
