@@ -64,6 +64,7 @@ function doPost(e) {
 
     var body =
       'Week: ' + data.week + '\n' +
+      'Date: ' + data.date + '\n' +
       'Name: ' + data.name + '\n' +
       'From: ' + data.from + '\n' +
       'To: ' + data.to + '\n' +
