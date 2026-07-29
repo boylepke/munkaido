@@ -135,10 +135,9 @@ select:focus, input:focus{
 
 .row2{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   gap:12px;
 }
-
 .time-select{
   display:flex;
   align-items:center;
@@ -157,10 +156,11 @@ select:focus, input:focus{
 
 .equip-grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   gap:8px;
 }
-.equip-item{
+  
+  .equip-item{
   display:flex;
   align-items:center;
   gap:9px;
@@ -170,9 +170,11 @@ select:focus, input:focus{
   padding:11px 10px;
   cursor:pointer;
   user-select:none;
+  min-width:0;
   transition:border-color .12s, background .12s;
 }
-.equip-item.checked{
+
+  .equip-item.checked{
   border-color:var(--amber-dim);
   background:rgba(255,159,67,0.08);
 }
@@ -181,7 +183,12 @@ select:focus, input:focus{
   accent-color: var(--amber);
   flex-shrink:0;
 }
-.equip-item span{font-size:13.5px;}
+.equip-item span{
+  font-size:13.5px;
+  overflow-wrap:break-word;
+  word-break:break-word;
+  min-width:0;
+}
 
 .section-label{
   font-family:'JetBrains Mono',monospace;
