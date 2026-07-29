@@ -458,7 +458,7 @@ function setAuthUI(signedIn) {
 function buildWorkbook(data) {
   const wsData = [
     ['Week', 'Date', 'Name', 'From', 'To', 'Equipment Used', 'Submitted At'],
-    [data.week, data.date, data.name, data.from, data.to, data.equipment.join(', '), new Date().toISOString()]
+    [data.week, data.date, data.name, data.from, data.to, data.equipment.join(', ')]
   ];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   ws['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 16 }, { wch: 8 }, { wch: 8 }, { wch: 45 }, { wch: 22 }];
