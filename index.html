@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="window.__gisLoaded && window.__gisLoaded()"></script>
 
 <style>
 :root{
@@ -42,6 +43,9 @@ body{
 }
 
 header{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
   margin-bottom:22px;
   padding-bottom:16px;
   border-bottom:1px solid var(--border);
@@ -58,6 +62,21 @@ header h1{
   margin:4px 0 0;
   font-weight:700;
   letter-spacing:-0.01em;
+}
+.dot{
+  width:8px;height:8px;border-radius:50%;
+  display:inline-block;margin-right:6px;
+  background:var(--red);
+  box-shadow:0 0 0 3px rgba(230,104,95,0.15);
+}
+.dot.on{
+  background:var(--green);
+  box-shadow:0 0 0 3px rgba(111,207,151,0.15);
+}
+.auth-status{
+  display:flex;align-items:center;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;color:var(--muted);
 }
 
 .card{
@@ -187,9 +206,16 @@ button{
 button:active{filter:brightness(0.92);}
 button:disabled{opacity:0.45;cursor:not-allowed;}
 
+.btn-google{
+  background:var(--panel-2);
+  border:1px solid var(--border);
+  color:var(--text);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
 .btn-save{
   background:var(--amber);
   color:#1a1206;
+  margin-top:4px;
 }
 
 .status{
@@ -216,8 +242,14 @@ footer{
 
 <div class="wrap">
   <header>
-    <div class="brand">Shift Log</div>
-    <h1>Weekly hours &amp; equipment</h1>
+    <div>
+      <div class="brand">Shift Log</div>
+      <h1>Weekly hours &amp; equipment</h1>
+    </div>
+    <div class="auth-status">
+      <span class="dot" id="authDot"></span>
+      <span id="authText">Not signed in</span>
+    </div>
   </header>
 
   <div class="card">
@@ -260,11 +292,15 @@ footer{
     <div class="equip-grid" id="equipGrid"></div>
   </div>
 
-  <button class="btn-save" id="btnSave">Save &amp; upload</button>
+  <button class="btn-google" id="btnGoogle">
+    <span id="googleBtnText">Sign in with Google</span>
+  </button>
+
+  <button class="btn-save" id="btnSave" style="margin-top:10px;" disabled>Save &amp; upload</button>
 
   <div class="status" id="status"></div>
 
-  <footer>KENGURU · SHIFT LOG · v3.0</footer>
+  <footer>KENGURU · SHIFT LOG · v4.0</footer>
 </div>
 
 <script>
@@ -272,8 +308,8 @@ footer{
    CONFIG — EDIT THESE VALUES
    ============================================================ */
 const CONFIG = {
-  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzxZMb3RZ_NvjigeseffFDJQ_RrXX5fsT9wN1lKkmuaRyEI_v1ooZ-rYZ0ezdYzmORoNA/exec', // ends in /exec
-  SHARED_SECRET: 'formeld',                       // must match the .gs file
+  CLIENT_ID: 'YOUR_CLIENT_ID.apps.googleusercontent.com', // from Google Cloud Console
+  FOLDER_ID: 'YOUR_DRIVE_FOLDER_ID',                       // target Drive folder
   NAMES: ['Name 1', 'Name 2', 'Name 3', 'Name 4'],
   EQUIPMENT: [
     'Equipment 1', 'Equipment 2', 'Equipment 3',
@@ -281,6 +317,9 @@ const CONFIG = {
   ]
 };
 /* ============================================================ */
+
+let accessToken = null;
+let tokenClient = null;
 
 // ---------- ISO week helpers ----------
 function getISOWeek(date) {
@@ -294,7 +333,7 @@ function getISOWeek(date) {
 
 function dateFromInputValue(value) {
   const [y, m, d] = value.split('-').map(Number);
-  return new Date(y, m - 1, d); // local date — matches how getISOWeek expects its input
+  return new Date(y, m - 1, d);
 }
 function toInputValue(date) {
   const y = date.getFullYear();
@@ -362,7 +401,42 @@ function populateEquipment() {
   });
 }
 
-// ---------- Build xlsx ----------
+// ---------- Google auth ----------
+window.__gisLoaded = function () {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CONFIG.CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    callback: (resp) => {
+      if (resp.error) {
+        setStatus('Sign-in failed: ' + resp.error, 'err');
+        return;
+      }
+      accessToken = resp.access_token;
+      setAuthUI(true);
+    }
+  });
+};
+
+document.getElementById('btnGoogle').addEventListener('click', () => {
+  if (!tokenClient) {
+    setStatus('Google auth not loaded yet — check your internet connection.', 'err');
+    return;
+  }
+  if (CONFIG.CLIENT_ID.startsWith('YOUR_')) {
+    setStatus('Set CONFIG.CLIENT_ID in the file first.', 'err');
+    return;
+  }
+  tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
+});
+
+function setAuthUI(signedIn) {
+  document.getElementById('authDot').classList.toggle('on', signedIn);
+  document.getElementById('authText').textContent = signedIn ? 'Signed in' : 'Not signed in';
+  document.getElementById('googleBtnText').textContent = signedIn ? 'Signed in — sign in again' : 'Sign in with Google';
+  document.getElementById('btnSave').disabled = !signedIn;
+}
+
+// ---------- Build & upload xlsx ----------
 function buildWorkbook(data) {
   const wsData = [
     ['Week', 'Date', 'Name', 'From', 'To', 'Equipment Used', 'Submitted At'],
@@ -375,26 +449,36 @@ function buildWorkbook(data) {
   return wb;
 }
 
-function arrayBufferToBase64(buffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
-}
+async function uploadToDrive(blob, filename) {
+  const metadata = {
+    name: filename,
+    parents: [CONFIG.FOLDER_ID],
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  };
+  const boundary = '-------shiftlog' + Date.now();
+  const delimiter = '\r\n--' + boundary + '\r\n';
+  const closeDelim = '\r\n--' + boundary + '--';
 
-async function sendViaAppsScript(payload) {
-  // Apps Script web apps don't return CORS headers, so the response is
-  // opaque with mode:'no-cors' — we can't read success/failure back,
-  // but the request itself still reaches the script and triggers the email.
-  await fetch(CONFIG.APPS_SCRIPT_URL, {
+  const metaPart = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata);
+  const mediaHeader = delimiter + 'Content-Type: ' + metadata.mimeType + '\r\n\r\n';
+  const fileBuffer = await blob.arrayBuffer();
+
+  const bodyBlob = new Blob([metaPart, mediaHeader, fileBuffer, closeDelim]);
+
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name', {
     method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type': 'multipart/related; boundary=' + boundary
+    },
+    body: bodyBlob
   });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error('Drive upload failed (' + res.status + '): ' + errText);
+  }
+  return res.json();
 }
 
 function setStatus(msg, cls) {
@@ -404,8 +488,8 @@ function setStatus(msg, cls) {
 }
 
 document.getElementById('btnSave').addEventListener('click', async () => {
-  if (CONFIG.APPS_SCRIPT_URL.startsWith('YOUR_')) {
-    setStatus('Set CONFIG.APPS_SCRIPT_URL in the file first.', 'err');
+  if (CONFIG.FOLDER_ID.startsWith('YOUR_')) {
+    setStatus('Set CONFIG.FOLDER_ID in the file first.', 'err');
     return;
   }
   const dayVal = document.getElementById('day').value;
@@ -426,20 +510,11 @@ document.getElementById('btnSave').addEventListener('click', async () => {
   try {
     const wb = buildWorkbook(data);
     const arrayBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    const blob = new Blob([arrayBuf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const filename = `shiftlog_${data.week}_${name.replace(/\s+/g, '_')}_${Date.now()}.xlsx`;
 
-    setStatus('Uploading…');
-    await sendViaAppsScript({
-      secret: CONFIG.SHARED_SECRET,
-      filename,
-      fileBase64: arrayBufferToBase64(arrayBuf),
-      week: data.week,
-      date: data.date,
-      name: data.name,
-      from: data.from,
-      to: data.to,
-      equipment: equipment.join(', ')
-    });
+    setStatus('Uploading to Drive…');
+    await uploadToDrive(blob, filename);
 
     setStatus('Uploaded ✓  ' + filename, 'ok');
   } catch (err) {
