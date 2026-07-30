@@ -529,7 +529,10 @@ document.getElementById('btnSave').addEventListener('click', async () => {
     const wb = buildWorkbook(data);
     const arrayBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
     const blob = new Blob([arrayBuf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const filename = `shiftlog_${data.week}_${name.replace(/\s+/g, '_')}_${Date.now()}.xlsx`;
+    const now = new Date();
+    const createdDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const createdTime = `${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
+    const filename = `shiftlog_${name.replace(/\s+/g, '_')}_${data.week}_${createdDate}_${createdTime}.xlsx`;
 
     setStatus('Uploading to Drive…');
     await uploadToDrive(blob, filename);
